@@ -12,6 +12,7 @@ NotificationActionType notificationActionTypeFromString(String value) {
 class NotificationItem {
   const NotificationItem({
     required this.id,
+    required this.projectId,
     required this.title,
     required this.message,
     required this.targetRole,
@@ -22,6 +23,7 @@ class NotificationItem {
   });
 
   final int id;
+  final int projectId;
   final String title;
   final String message;
   final UserRole targetRole;
@@ -32,6 +34,7 @@ class NotificationItem {
 
   NotificationItem copyWith({
     int? id,
+    int? projectId,
     String? title,
     String? message,
     UserRole? targetRole,
@@ -42,6 +45,7 @@ class NotificationItem {
   }) {
     return NotificationItem(
       id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
       title: title ?? this.title,
       message: message ?? this.message,
       targetRole: targetRole ?? this.targetRole,
@@ -55,6 +59,7 @@ class NotificationItem {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'projectId': projectId,
       'title': title,
       'message': message,
       'targetRole': targetRole.name,
@@ -68,6 +73,7 @@ class NotificationItem {
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
       id: json['id'] as int,
+      projectId: json['projectId'] as int? ?? 1,
       title: json['title'] as String,
       message: json['message'] as String,
       targetRole: userRoleFromString(json['targetRole'] as String),

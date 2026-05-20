@@ -98,28 +98,47 @@ class SplashScreen extends StatelessWidget {
             colors: [Color(0xFF0F766E), Color(0xFF99F6E4)],
           ),
         ),
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 64,
-                width: 64,
-                child: CircularProgressIndicator(
-                  strokeWidth: 5,
-                  color: Colors.white,
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.8, end: 1),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) {
+              return Transform.scale(scale: value, child: Opacity(opacity: value, child: child));
+            },
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.router, size: 64, color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  'Home Network Assistant',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Сканируем домашнюю сеть...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+                SizedBox(height: 20),
+                SizedBox(
+                  height: 64,
+                  width: 64,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 5,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+                SizedBox(height: 20),
+                Text(
+                  'Сканируем проекты и домашнюю сеть...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -19,6 +19,7 @@ DeviceStatus deviceStatusFromString(String value) {
 class NetworkDevice {
   const NetworkDevice({
     required this.id,
+    required this.projectId,
     required this.name,
     required this.type,
     required this.ipAddress,
@@ -38,6 +39,7 @@ class NetworkDevice {
   });
 
   final int id;
+  final int projectId;
   final String name;
   final String type;
   final String ipAddress;
@@ -59,6 +61,7 @@ class NetworkDevice {
 
   NetworkDevice copyWith({
     int? id,
+    int? projectId,
     String? name,
     String? type,
     String? ipAddress,
@@ -78,6 +81,7 @@ class NetworkDevice {
   }) {
     return NetworkDevice(
       id: id ?? this.id,
+      projectId: projectId ?? this.projectId,
       name: name ?? this.name,
       type: type ?? this.type,
       ipAddress: ipAddress ?? this.ipAddress,
@@ -100,6 +104,7 @@ class NetworkDevice {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'projectId': projectId,
       'name': name,
       'type': type,
       'ipAddress': ipAddress,
@@ -122,13 +127,12 @@ class NetworkDevice {
   factory NetworkDevice.fromJson(Map<String, dynamic> json) {
     return NetworkDevice(
       id: json['id'] as int,
+      projectId: json['projectId'] as int? ?? 1,
       name: json['name'] as String,
       type: json['type'] as String,
       ipAddress: json['ipAddress'] as String,
       macAddress: json['macAddress'] as String,
-      connectionType: connectionTypeFromString(
-        json['connectionType'] as String,
-      ),
+      connectionType: connectionTypeFromString(json['connectionType'] as String),
       room: json['room'] as String,
       status: deviceStatusFromString(json['status'] as String),
       signalStrength: json['signalStrength'] as int,

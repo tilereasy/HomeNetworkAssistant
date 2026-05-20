@@ -13,14 +13,40 @@ class User {
     required this.login,
     required this.password,
     required this.role,
+    required this.lastLogin,
+    required this.favoriteDeviceIds,
+    required this.savedSettings,
   });
 
   final int id;
   final String login;
   final String password;
   final UserRole role;
+  final DateTime? lastLogin;
+  final List<int> favoriteDeviceIds;
+  final Map<String, dynamic> savedSettings;
 
   bool get isAdmin => role == UserRole.admin;
+
+  User copyWith({
+    int? id,
+    String? login,
+    String? password,
+    UserRole? role,
+    DateTime? lastLogin,
+    List<int>? favoriteDeviceIds,
+    Map<String, dynamic>? savedSettings,
+  }) {
+    return User(
+      id: id ?? this.id,
+      login: login ?? this.login,
+      password: password ?? this.password,
+      role: role ?? this.role,
+      lastLogin: lastLogin ?? this.lastLogin,
+      favoriteDeviceIds: favoriteDeviceIds ?? this.favoriteDeviceIds,
+      savedSettings: savedSettings ?? this.savedSettings,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -28,6 +54,9 @@ class User {
       'login': login,
       'password': password,
       'role': role.name,
+      'lastLogin': lastLogin?.toIso8601String(),
+      'favoriteDeviceIds': favoriteDeviceIds,
+      'savedSettings': savedSettings,
     };
   }
 
@@ -37,6 +66,13 @@ class User {
       login: json['login'] as String,
       password: json['password'] as String,
       role: userRoleFromString(json['role'] as String),
+      lastLogin: json['lastLogin'] == null
+          ? null
+          : DateTime.parse(json['lastLogin'] as String),
+      favoriteDeviceIds: (json['favoriteDeviceIds'] as List<dynamic>? ?? [])
+          .map((item) => item as int)
+          .toList(),
+      savedSettings: (json['savedSettings'] as Map<String, dynamic>?) ?? const {},
     );
   }
 }
