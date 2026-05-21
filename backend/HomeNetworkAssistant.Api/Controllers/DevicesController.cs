@@ -60,4 +60,17 @@ public class DevicesController(DeviceService deviceService) : BaseApiController
             return BadRequest(new { error = exception.Message });
         }
     }
+
+    [HttpPost("{deviceId:int}/resend-request")]
+    public async Task<ActionResult<DeviceDto>> ResendRequest(int deviceId)
+    {
+        try
+        {
+            return Ok(await deviceService.ResendRequestAsync(deviceId, RequireUserLogin()));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+    }
 }

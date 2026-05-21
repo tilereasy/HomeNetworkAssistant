@@ -153,6 +153,49 @@ public class DeviceService(
         await dbContext.SaveChangesAsync();
     }
 
+    public async Task<DeviceDto> ResendRequestAsync(int deviceId, string actingLogin)
+    {
+        var user = await userService.GetRequiredUserAsync(actingLogin);
+        if (string.Equals(user.Role, "admin", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Only user requests can be resent.");
+        }
+
+        var device = await GetRequiredDeviceEntityAsync(deviceId);
+        if (!string.Equals(device.CreatedBy, user.Login, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("You can resend only your own device requests.");
+        }
+
+        device.Status = "pending";
+
+        var request = new DeviceRequestEntity
+        {
+            ProjectId = device.ProjectId,
+            DeviceId = device.Id,
+            RequesterLogin = user.Login,
+            Status = "pending",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        dbContext.DeviceRequests.Add(request);
+        await dbContext.SaveChangesAsync();
+
+        await notificationService.AddAsync(new NotificationItemEntity
+        {
+            ProjectId = device.ProjectId,
+            Title = "Повторный запрос на устройство",
+            Message = $"Пользователь {user.Login} повторно отправил запрос на \"{device.Name}\"",
+            TargetRole = "admin",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow,
+            ActionType = "deviceRequest",
+            RelatedDeviceId = device.Id,
+        });
+
+        return device.ToDto();
+    }
+
     public async Task<NetworkDeviceEntity> GetRequiredDeviceEntityAsync(int deviceId)
     {
         return await dbContext.Devices.FirstOrDefaultAsync(device => device.Id == deviceId)
