@@ -57,7 +57,8 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), 'admin');
     await tester.enterText(find.byType(TextFormField).at(1), 'admin123');
-    await tester.tap(find.text('Войти'));
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Войти'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Войти'));
     await tester.pumpAndSettle();
 
     expect(find.text('Проекты сети'), findsOneWidget);
@@ -93,7 +94,8 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), 'user');
     await tester.enterText(find.byType(TextFormField).at(1), 'user123');
-    await tester.tap(find.text('Войти'));
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Войти'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Войти'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Open navigation menu'));

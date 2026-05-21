@@ -46,56 +46,80 @@ class _LoginScreenState extends State<LoginScreen> {
                   builder: (context, _) {
                     return Form(
                       key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Home Network Assistant',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Войдите как admin/admin123 или user/user123',
-                          ),
-                          const SizedBox(height: 20),
-                          TextFormField(
-                            controller: _loginController,
-                            decoration: const InputDecoration(
-                              labelText: 'Логин',
-                              border: OutlineInputBorder(),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 56,
+                              width: 56,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.router_outlined,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ),
-                            validator: (value) =>
-                                value == null || value.isEmpty ? 'Введите логин' : null,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Пароль',
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (value) => value == null || value.isEmpty
-                                ? 'Введите пароль'
-                                : null,
-                          ),
-                          if (widget.controller.loginError != null) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
                             Text(
-                              widget.controller.loginError!,
-                              style: const TextStyle(color: Colors.red),
+                              'Home Network Assistant',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Войдите как admin/admin123 или user/user123',
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: const [
+                                Chip(label: Text('admin: полный доступ')),
+                                Chip(label: Text('user: заявки и избранное')),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            TextFormField(
+                              controller: _loginController,
+                              decoration: const InputDecoration(
+                                labelText: 'Логин',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) =>
+                                  value == null || value.isEmpty ? 'Введите логин' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Пароль',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) => value == null || value.isEmpty
+                                  ? 'Введите пароль'
+                                  : null,
+                            ),
+                            if (widget.controller.loginError != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                widget.controller.loginError!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _submit,
+                                child: const Text('Войти'),
+                              ),
                             ),
                           ],
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed: _submit,
-                              child: const Text('Войти'),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },

@@ -23,6 +23,10 @@ class DeviceDetailsScreen extends StatelessWidget {
         .where((request) => request.deviceId == device.id)
         .toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final latestRequest = myRequest.isEmpty ? null : myRequest.first;
+    final canSendAdminRequest = !controller.isAdmin &&
+        device.createdBy == controller.currentUser!.login &&
+        (latestRequest == null || device.status == DeviceStatus.rejected);
 
     return Scaffold(
       appBar: AppBar(title: Text(device.name)),
@@ -61,19 +65,19 @@ class DeviceDetailsScreen extends StatelessWidget {
               'Подключение: ${device.connectionType.name}',
               'Скорость: ${device.speedMbps} Мбит/с',
               'Сигнал: ${device.signalStrength}%',
-                'Статус: ${statusLabel(device.status)}',
+              'Статус: ${statusLabel(device.status)}',
               'Создал: ${device.createdBy}',
               'Добавлено: ${device.createdAt.toLocal()}',
               'Описание: ${device.description.isEmpty ? 'Нет' : device.description}',
             ],
           ),
-          if (myRequest.isNotEmpty) ...[
+          if (latestRequest != null) ...[
             const SizedBox(height: 12),
             _DetailsCard(
               title: 'Мой запрос',
               rows: [
-                'Статус заявки: ${myRequest.first.status.name}',
-                'Обновлено: ${myRequest.first.updatedAt.toLocal()}',
+                'Статус заявки: ${latestRequest.status.name}',
+                'Обновлено: ${latestRequest.updatedAt.toLocal()}',
               ],
             ),
           ],
@@ -119,13 +123,25 @@ class DeviceDetailsScreen extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('В корзину'),
                 ),
-              if (!controller.isAdmin &&
-                  device.createdBy == controller.currentUser!.login &&
-                  device.status == DeviceStatus.rejected)
+              if (canSendAdminRequest)
                 OutlinedButton.icon(
-                  onPressed: () => controller.resendDeviceRequest(device),
+                  onPressed: () async {
+                    await controller.resendDeviceRequest(device);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Запрос администратору отправлен повторно'),
+                        ),
+                      );
+                    }
+                  },
                   icon: const Icon(Icons.send),
                   label: const Text('Отправить запрос админу'),
+                ),
+              if (!controller.isAdmin && latestRequest != null && device.status == DeviceStatus.pending)
+                const Chip(
+                  avatar: Icon(Icons.schedule, size: 18),
+                  label: Text('Ожидает решения администратора'),
                 ),
             ],
           ),
@@ -151,10 +167,12 @@ class _DetailsCard extends StatelessWidget {
           children: [
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            ...rows.map((row) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(row),
-                )),
+            ...rows.map(
+              (row) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(row),
+              ),
+            ),
           ],
         ),
       ),
