@@ -58,6 +58,15 @@ class HttpApiService {
     throw ApiException(message, statusCode: response.statusCode);
   }
 
+  Future<bool> checkConnection() async {
+    try {
+      final response = await _client.get(_uri('/api/projects'), headers: _headers());
+      return response.statusCode >= 100 && response.statusCode < 600;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<User> login(String login, String password) async {
     final response = await _client.post(
       _uri('/api/auth/login'),

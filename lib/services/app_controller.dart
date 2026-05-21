@@ -36,6 +36,8 @@ class AppController extends ChangeNotifier {
   String? _loginError;
   String? _operationError;
   bool _isBusy = false;
+  bool _backendAvailable = false;
+  bool _backendChecking = false;
   String _deviceTypeFilter = 'all';
   String _deviceRoomFilter = 'all';
 
@@ -46,11 +48,14 @@ class AppController extends ChangeNotifier {
   String? get loginError => _loginError;
   String? get operationError => _operationError;
   bool get isBusy => _isBusy;
+  bool get backendAvailable => _backendAvailable;
+  bool get backendChecking => _backendChecking;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
   String get deviceTypeFilter => _deviceTypeFilter;
   String get deviceRoomFilter => _deviceRoomFilter;
 
   Future<void> initialize() async {
+    await refreshBackendStatus(notify: false);
     _currentUser = await repository.loadSessionUser();
     if (_currentUser == null) {
       _data = AppData.empty();
@@ -181,6 +186,21 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> refreshBackendStatus({bool notify = true}) async {
+    _backendChecking = true;
+    if (notify) {
+      notifyListeners();
+    }
+    try {
+      _backendAvailable = await repository.checkBackendConnection();
+    } finally {
+      _backendChecking = false;
+      if (notify) {
+        notifyListeners();
+      }
+    }
+  }
+
   Future<bool> login(String login, String password) async {
     _setBusy(true);
     try {
@@ -198,7 +218,9 @@ class AppController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (error) {
-      _loginError = 'Неверный логин или пароль';
+      _loginError = error.toString().contains('Неверный логин или пароль')
+          ? 'Неверный логин или пароль'
+          : 'Не удалось выполнить вход';
       _operationError = error.toString();
       notifyListeners();
       return false;

@@ -15,6 +15,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.refreshBackendStatus();
+    });
+  }
 
   @override
   void dispose() {
@@ -69,16 +78,40 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Войдите как admin/admin123 или user/user123',
-                            ),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: const [
-                                Chip(label: Text('admin: полный доступ')),
-                                Chip(label: Text('user: заявки и избранное')),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Icon(
+                                  widget.controller.backendChecking
+                                      ? Icons.sync
+                                      : widget.controller.backendAvailable
+                                          ? Icons.cloud_done_outlined
+                                          : Icons.cloud_off_outlined,
+                                  color: widget.controller.backendChecking
+                                      ? Colors.orange
+                                      : widget.controller.backendAvailable
+                                          ? Colors.green
+                                          : Colors.red,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    widget.controller.backendChecking
+                                        ? 'Проверяем соединение с backend...'
+                                        : widget.controller.backendAvailable
+                                            ? 'Соединение с backend есть'
+                                            : 'Backend недоступен',
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Проверить соединение',
+                                  onPressed: widget.controller.backendChecking
+                                      ? null
+                                      : () => widget.controller.refreshBackendStatus(),
+                                  icon: const Icon(Icons.refresh),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 20),
@@ -156,4 +189,3 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 }
-  bool _submitting = false;

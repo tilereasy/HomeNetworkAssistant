@@ -15,6 +15,10 @@ class AppRepository {
   final HttpApiService apiService;
   final StorageService storageService;
 
+  Future<bool> checkBackendConnection() {
+    return apiService.checkConnection();
+  }
+
   Future<User?> loadSessionUser() {
     return storageService.loadSessionUser();
   }
