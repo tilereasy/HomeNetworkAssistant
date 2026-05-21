@@ -1,0 +1,6 @@
+@HomeNetworkAssistant.Api_HostAddress = http://localhost:5077
+
+GET {{HomeNetworkAssistant.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

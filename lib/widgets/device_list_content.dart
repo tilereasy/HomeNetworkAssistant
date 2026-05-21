@@ -27,10 +27,6 @@ class DeviceListContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (devices.isEmpty) {
-      return EmptyState(title: emptyTitle, subtitle: emptySubtitle);
-    }
-
     return Column(
       children: [
         if (showFilters)
@@ -71,30 +67,41 @@ class DeviceListContent extends StatelessWidget {
                     onChanged: (value) => controller.setDeviceFilters(room: value),
                   ),
                 ),
+                if (controller.deviceTypeFilter != 'all' ||
+                    controller.deviceRoomFilter != 'all') ...[
+                  const SizedBox(width: 12),
+                  IconButton.outlined(
+                    tooltip: 'Сбросить фильтры',
+                    onPressed: controller.resetDeviceFilters,
+                    icon: const Icon(Icons.filter_alt_off),
+                  ),
+                ],
               ],
             ),
           ),
         Expanded(
-          child: ListView.builder(
-            itemCount: devices.length + (showLoadMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == devices.length) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: OutlinedButton(
-                    onPressed: controller.showMoreDevices,
-                    child: const Text('Показать ещё 5'),
-                  ),
-                );
-              }
-              final device = devices[index];
-              return DeviceCard(
-                device: device,
-                onTap: () => onDeviceTap(device),
-                onFavoriteTap: () => controller.toggleFavorite(device.id),
-              );
-            },
-          ),
+          child: devices.isEmpty
+              ? EmptyState(title: emptyTitle, subtitle: emptySubtitle)
+              : ListView.builder(
+                  itemCount: devices.length + (showLoadMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == devices.length) {
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: OutlinedButton(
+                          onPressed: controller.showMoreDevices,
+                          child: const Text('Показать ещё 5'),
+                        ),
+                      );
+                    }
+                    final device = devices[index];
+                    return DeviceCard(
+                      device: device,
+                      onTap: () => onDeviceTap(device),
+                      onFavoriteTap: () => controller.toggleFavorite(device.id),
+                    );
+                  },
+                ),
         ),
       ],
     );

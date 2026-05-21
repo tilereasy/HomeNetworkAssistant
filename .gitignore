@@ -45,3 +45,8 @@ app.*.map.json
 /android/app/release
 
 /misc
+
+# ASP.NET backend artifacts
+backend/**/bin/
+backend/**/obj/
+backend/**/App_Data/

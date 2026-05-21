@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/device_request.dart';
 import '../models/network_device.dart';
 import '../models/notification_item.dart';
 import '../services/app_controller.dart';
@@ -37,7 +38,7 @@ class NotificationsScreen extends StatelessWidget {
 
         final deviceId = device?.id;
         final request = deviceId == null
-            ? <dynamic>[]
+            ? <DeviceRequest>[]
             : controller.currentProjectRequests
                 .where((entry) => entry.deviceId == deviceId)
                 .toList();
@@ -75,7 +76,7 @@ class NotificationsScreen extends StatelessWidget {
                     item.actionType == NotificationActionType.deviceRequest &&
                     device != null &&
                     latestRequest != null &&
-                    latestRequest.status.name == 'pending') ...[
+                    latestRequest.status == DeviceRequestStatus.pending) ...[
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
