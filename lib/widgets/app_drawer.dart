@@ -60,9 +60,9 @@ class AppDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Выйти'),
-            onTap: () {
+            onTap: () async {
               Navigator.of(context).pop();
-              controller.logout();
+              await controller.logout();
             },
           ),
         ],

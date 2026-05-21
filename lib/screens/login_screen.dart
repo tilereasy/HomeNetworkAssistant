@@ -114,8 +114,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton(
-                                onPressed: _submit,
-                                child: const Text('Войти'),
+                                onPressed: _submitting ? null : _submit,
+                                child: _submitting
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Text('Войти'),
                               ),
                             ),
                           ],
@@ -132,14 +138,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
 
-    widget.controller.login(
-      _loginController.text.trim(),
-      _passwordController.text.trim(),
-    );
+    setState(() => _submitting = true);
+    try {
+      await widget.controller.login(
+        _loginController.text.trim(),
+        _passwordController.text.trim(),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
   }
 }
+  bool _submitting = false;

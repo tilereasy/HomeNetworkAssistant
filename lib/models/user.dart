@@ -11,11 +11,11 @@ class User {
   const User({
     required this.id,
     required this.login,
-    required this.password,
+    this.password = '',
     required this.role,
     required this.lastLogin,
-    required this.favoriteDeviceIds,
-    required this.savedSettings,
+    this.favoriteDeviceIds = const [],
+    this.savedSettings = const {},
   });
 
   final int id;
@@ -64,7 +64,7 @@ class User {
     return User(
       id: json['id'] as int,
       login: json['login'] as String,
-      password: json['password'] as String,
+      password: json['password'] as String? ?? '',
       role: userRoleFromString(json['role'] as String),
       lastLogin: json['lastLogin'] == null
           ? null

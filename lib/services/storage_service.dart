@@ -2,23 +2,44 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/app_data.dart';
+import '../models/user.dart';
 
 class StorageService {
-  static const _snapshotKey = 'app_snapshot';
+  static const _sessionUserKey = 'session_user';
+  static const _currentProjectIdKey = 'current_project_id';
 
-  Future<AppData?> loadSnapshot() async {
+  Future<User?> loadSessionUser() async {
     final prefs = await SharedPreferences.getInstance();
-    final snapshot = prefs.getString(_snapshotKey);
-    if (snapshot == null) {
+    final snapshot = prefs.getString(_sessionUserKey);
+    if (snapshot == null || snapshot.isEmpty) {
       return null;
     }
 
-    return AppData.fromJson(json.decode(snapshot) as Map<String, dynamic>);
+    return User.fromJson(json.decode(snapshot) as Map<String, dynamic>);
   }
 
-  Future<void> saveSnapshot(AppData data) async {
+  Future<void> saveSessionUser(User user) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_snapshotKey, json.encode(data.toJson()));
+    await prefs.setString(_sessionUserKey, json.encode(user.toJson()));
+  }
+
+  Future<void> clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionUserKey);
+  }
+
+  Future<int?> loadCurrentProjectId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_currentProjectIdKey);
+  }
+
+  Future<void> saveCurrentProjectId(int projectId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_currentProjectIdKey, projectId);
+  }
+
+  Future<void> clearCurrentProjectId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_currentProjectIdKey);
   }
 }

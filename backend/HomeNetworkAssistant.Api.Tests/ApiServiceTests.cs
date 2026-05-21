@@ -102,6 +102,24 @@ public sealed class ApiServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Resend_Request_Creates_New_Pending_Request_And_Admin_Notification()
+    {
+        await using var context = _factory.CreateContext();
+        var userService = new UserService(context);
+        var notificationService = new NotificationService(context, userService);
+        var deviceService = new DeviceService(context, userService, notificationService);
+
+        var response = await deviceService.ResendRequestAsync(2, "user");
+
+        Assert.Equal("pending", response.Status);
+        Assert.Equal(2, await context.DeviceRequests.CountAsync(item => item.DeviceId == 2));
+        Assert.True(await context.Notifications.AnyAsync(item =>
+            item.RelatedDeviceId == 2 &&
+            item.TargetRole == "admin" &&
+            item.ActionType == "deviceRequest"));
+    }
+
+    [Fact]
     public async Task RouterSettings_Update_Persists_DhcpRange()
     {
         await using var context = _factory.CreateContext();

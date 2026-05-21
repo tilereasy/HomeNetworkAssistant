@@ -1,18 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:home_network_assistant/models/network_device.dart';
 import 'package:home_network_assistant/models/router_settings.dart';
+import 'package:home_network_assistant/models/user.dart';
 import 'package:home_network_assistant/repositories/app_repository.dart';
 import 'package:home_network_assistant/services/app_controller.dart';
-import 'package:home_network_assistant/services/mock_api_service.dart';
+import 'package:home_network_assistant/services/http_api_service.dart';
 import 'package:home_network_assistant/services/storage_service.dart';
 
-import 'models/fake_asset_bundle.dart';
+import 'models/fake_api_backend.dart';
 
 Map<String, dynamic> buildSeed() {
   return {
-    'currentProjectId': 1,
     'projects': [
       {
         'id': 1,
@@ -32,7 +33,7 @@ Map<String, dynamic> buildSeed() {
         'role': 'admin',
         'lastLogin': null,
         'favoriteDeviceIds': [],
-        'savedSettings': {},
+        'savedSettings': {'theme': 'light'},
       },
       {
         'id': 2,
@@ -41,7 +42,7 @@ Map<String, dynamic> buildSeed() {
         'role': 'user',
         'lastLogin': null,
         'favoriteDeviceIds': [],
-        'savedSettings': {},
+        'savedSettings': {'theme': 'light'},
       },
     ],
     'devices': [
@@ -61,7 +62,7 @@ Map<String, dynamic> buildSeed() {
         'isFavorite': false,
         'isDeleted': false,
         'createdBy': 'admin',
-        'createdAt': '2026-05-21T10:00:00.000',
+        'createdAt': '2026-05-21T10:00:00.000Z',
         'isGuest': false,
         'requiresStaticIp': true,
       },
@@ -81,7 +82,7 @@ Map<String, dynamic> buildSeed() {
         'isFavorite': false,
         'isDeleted': false,
         'createdBy': 'user',
-        'createdAt': '2026-05-21T11:00:00.000',
+        'createdAt': '2026-05-21T11:00:00.000Z',
         'isGuest': false,
         'requiresStaticIp': false,
       },
@@ -93,8 +94,8 @@ Map<String, dynamic> buildSeed() {
         'deviceId': 2,
         'requesterLogin': 'user',
         'status': 'pending',
-        'createdAt': '2026-05-21T11:00:00.000',
-        'updatedAt': '2026-05-21T11:00:00.000',
+        'createdAt': '2026-05-21T11:00:00.000Z',
+        'updatedAt': '2026-05-21T11:00:00.000Z',
       },
     ],
     'notifications': [
@@ -105,7 +106,7 @@ Map<String, dynamic> buildSeed() {
         'message': 'New request',
         'targetRole': 'admin',
         'isRead': false,
-        'createdAt': '2026-05-21T11:00:00.000',
+        'createdAt': '2026-05-21T11:00:00.000Z',
         'actionType': 'deviceRequest',
         'relatedDeviceId': 2,
       },
@@ -129,79 +130,54 @@ Map<String, dynamic> buildSeed() {
 
 void main() {
   late AppRepository repository;
+  late User adminUser;
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    final backend = FakeApiBackend(buildSeed());
     repository = AppRepository(
-      apiService: MockApiService(
-        bundle: FakeAssetBundle(buildSeed()),
-        delay: Duration.zero,
+      apiService: HttpApiService(
+        baseUrl: 'http://localhost',
+        client: MockClient(backend.handle),
       ),
       storageService: StorageService(),
     );
+    adminUser = const User(
+      id: 1,
+      login: 'admin',
+      role: UserRole.admin,
+      lastLogin: null,
+      savedSettings: {'theme': 'light'},
+    );
   });
 
-  test('loads seed data and authenticates users', () async {
-    final data = await repository.loadData();
+  test('logs in and loads project data from http api', () async {
+    final loggedInUser = await repository.login('admin', 'admin123');
+    final data = await repository.loadData(currentUser: loggedInUser);
 
+    expect(loggedInUser.isAdmin, isTrue);
     expect(data.projects, hasLength(1));
     expect(data.devices, hasLength(2));
-    expect(repository.authenticate(data.users, 'admin', 'admin123')?.isAdmin, isTrue);
-    expect(repository.authenticate(data.users, 'user', 'wrong'), isNull);
-  });
-
-  test('migrates old snapshot without projects into default project', () async {
-    final oldSeed = {
-      'users': buildSeed()['users'],
-      'devices': [
-        {
-          ...((buildSeed()['devices'] as List).first as Map<String, dynamic>)
-            ..remove('projectId'),
-        },
-      ],
-      'notifications': [],
-      'routerSettings': {
-        'ssid': 'Home',
-        'password': 'pass',
-        'band': '5 GHz',
-        'channel': '36',
-        'dhcpEnabled': true,
-        'guestNetworkEnabled': false,
-        'hiddenSsid': false,
-        'maxDevices': 20,
-      },
-    };
-    final oldRepository = AppRepository(
-      apiService: MockApiService(bundle: FakeAssetBundle(oldSeed), delay: Duration.zero),
-      storageService: StorageService(),
-    );
-
-    final data = await oldRepository.loadData();
-
-    expect(data.projects.single.name, 'Домашняя сеть');
     expect(data.currentProjectId, 1);
-    expect(data.devices.single.projectId, 1);
-    expect(data.routerSettings.single.projectId, 1);
   });
 
-  test('toggles favorite, moves to trash and restores device', () async {
-    var data = await repository.loadData();
-    final user = data.users.firstWhere((item) => item.login == 'admin');
+  test('toggles favorite, moves to trash and restores device via http api', () async {
+    var data = await repository.loadData(currentUser: adminUser);
 
-    data = await repository.toggleFavorite(data, 1, user);
+    data = await repository.toggleFavorite(data, 1, adminUser);
     expect(data.devices.firstWhere((item) => item.id == 1).isFavorite, isTrue);
 
-    data = await repository.moveToTrash(data, 1);
+    data = await repository.moveToTrash(data, 1, adminUser);
     expect(data.devices.firstWhere((item) => item.id == 1).isDeleted, isTrue);
 
-    data = await repository.restoreDevice(data, 1);
+    data = await repository.restoreDevice(data, 1, adminUser);
     expect(data.devices.firstWhere((item) => item.id == 1).isDeleted, isFalse);
   });
 
-  test('approve request updates device and request status', () async {
+  test('approve request updates device and request status from http api', () async {
     final controller = AppController(repository: repository);
     await controller.initialize();
-    controller.login('admin', 'admin123');
+    await controller.login('admin', 'admin123');
     await controller.selectProject(1);
 
     await controller.decideDeviceRequest(
@@ -218,8 +194,8 @@ void main() {
     expect(controller.currentProjectRequests.first.status.name, 'approved');
   });
 
-  test('router settings save dhcp range', () async {
-    var data = await repository.loadData();
+  test('router settings save dhcp range through http api', () async {
+    var data = await repository.loadData(currentUser: adminUser);
     data = await repository.updateRouterSettings(
       data,
       const RouterSettings(
@@ -234,8 +210,29 @@ void main() {
         hiddenSsid: false,
         maxDevices: 10,
       ),
+      adminUser,
     );
 
     expect(data.routerSettings.single.dhcpRange, '192.168.1.2 - 192.168.1.50');
+  });
+
+  test('user resend request creates new pending request entry', () async {
+    final controller = AppController(repository: repository);
+    await controller.initialize();
+    await controller.login('user', 'user123');
+    await controller.selectProject(1);
+
+    await controller.resendDeviceRequest(
+      controller.data.devices.firstWhere((item) => item.id == 2),
+    );
+
+    expect(
+      controller.myRequests.where((item) => item.deviceId == 2),
+      hasLength(2),
+    );
+    expect(
+      controller.data.devices.firstWhere((item) => item.id == 2).status,
+      DeviceStatus.pending,
+    );
   });
 }

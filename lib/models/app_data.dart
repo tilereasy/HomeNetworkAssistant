@@ -24,6 +24,18 @@ class AppData {
   final List<RouterSettings> routerSettings;
   final int currentProjectId;
 
+  factory AppData.empty() {
+    return const AppData(
+      users: [],
+      projects: [],
+      devices: [],
+      deviceRequests: [],
+      notifications: [],
+      routerSettings: [],
+      currentProjectId: 0,
+    );
+  }
+
   factory AppData.fromJson(Map<String, dynamic> json) {
     final projectsJson = json['projects'] as List<dynamic>?;
     final projects = projectsJson == null || projectsJson.isEmpty

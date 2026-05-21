@@ -34,6 +34,8 @@ class AppController extends ChangeNotifier {
   AppSection _section = AppSection.projects;
   int _visibleDevicesCount = 5;
   String? _loginError;
+  String? _operationError;
+  bool _isBusy = false;
   String _deviceTypeFilter = 'all';
   String _deviceRoomFilter = 'all';
 
@@ -42,12 +44,25 @@ class AppController extends ChangeNotifier {
   AppSection get section => _section;
   int get visibleDevicesCount => _visibleDevicesCount;
   String? get loginError => _loginError;
+  String? get operationError => _operationError;
+  bool get isBusy => _isBusy;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
   String get deviceTypeFilter => _deviceTypeFilter;
   String get deviceRoomFilter => _deviceRoomFilter;
 
   Future<void> initialize() async {
-    _data = await repository.loadData();
+    _currentUser = await repository.loadSessionUser();
+    if (_currentUser == null) {
+      _data = AppData.empty();
+      notifyListeners();
+      return;
+    }
+
+    _data = await repository.loadData(currentUser: _currentUser!);
+    _currentUser = data.users.firstWhere(
+      (item) => item.id == _currentUser!.id,
+      orElse: () => _currentUser!,
+    );
     notifyListeners();
   }
 
@@ -96,7 +111,10 @@ class AppController extends ChangeNotifier {
   }
 
   List<DeviceRequest> get currentProjectRequests {
-    return data.deviceRequests.where((request) => request.projectId == currentProject.id).toList()
+    if (data.currentProjectId == 0) {
+      return const [];
+    }
+    return data.deviceRequests.where((request) => request.projectId == data.currentProjectId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -112,7 +130,7 @@ class AppController extends ChangeNotifier {
     }
 
     return data.notifications
-        .where((item) => item.targetRole == role && item.projectId == currentProject.id)
+        .where((item) => item.targetRole == role && item.projectId == data.currentProjectId)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -163,33 +181,40 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool login(String login, String password) {
-    final user = repository.authenticate(data.users, login, password);
-    if (user == null) {
+  Future<bool> login(String login, String password) async {
+    _setBusy(true);
+    try {
+      final user = await repository.login(login, password);
+      _currentUser = user;
+      _data = await repository.loadData(currentUser: user);
+      _currentUser = data.users.firstWhere(
+        (item) => item.id == user.id,
+        orElse: () => user,
+      );
+      _loginError = null;
+      _operationError = null;
+      _section = AppSection.projects;
+      _visibleDevicesCount = 5;
+      notifyListeners();
+      return true;
+    } catch (error) {
       _loginError = 'Неверный логин или пароль';
+      _operationError = error.toString();
       notifyListeners();
       return false;
+    } finally {
+      _setBusy(false);
     }
-
-    final updatedUser = user.copyWith(lastLogin: DateTime.now());
-    _data = data.copyWith(
-      users: data.users.map((item) => item.id == updatedUser.id ? updatedUser : item).toList(),
-    );
-    repository.save(data);
-    _currentUser = updatedUser;
-    _loginError = null;
-    _section = AppSection.projects;
-    _visibleDevicesCount = 5;
-    repository.upsertUser(data, _currentUser!);
-    notifyListeners();
-    return true;
   }
 
-  void logout() {
+  Future<void> logout() async {
     _currentUser = null;
+    _data = AppData.empty();
     _section = AppSection.projects;
     _visibleDevicesCount = 5;
     _loginError = null;
+    _operationError = null;
+    await repository.clearSession();
     notifyListeners();
   }
 
@@ -201,124 +226,99 @@ class AppController extends ChangeNotifier {
     return data.devices.fold<int>(0, (maxId, item) => item.id > maxId ? item.id : maxId) + 1;
   }
 
-  int nextRequestId() {
-    return data.deviceRequests.fold<int>(0, (maxId, item) => item.id > maxId ? item.id : maxId) + 1;
-  }
-
-  int nextNotificationId() {
-    return data.notifications.fold<int>(0, (maxId, item) => item.id > maxId ? item.id : maxId) + 1;
-  }
-
   Future<void> selectProject(int projectId) async {
-    _data = await repository.setCurrentProject(data, projectId);
-    _section = AppSection.devices;
-    _visibleDevicesCount = 5;
-    resetDeviceFilters();
+    await _runMutation(() async {
+      _data = await repository.setCurrentProject(data, projectId, currentUser!);
+      _currentUser = data.users.firstWhere(
+        (item) => item.id == currentUser!.id,
+        orElse: () => currentUser!,
+      );
+      _section = AppSection.devices;
+      _visibleDevicesCount = 5;
+      _deviceTypeFilter = 'all';
+      _deviceRoomFilter = 'all';
+      notifyListeners();
+    });
   }
 
   Future<void> createProject(NetworkProject project, RouterSettings settings) async {
-    _data = await repository.addProject(data, project, settings);
-    _section = AppSection.devices;
-    _visibleDevicesCount = 5;
-    resetDeviceFilters();
+    await _runMutation(() async {
+      _data = await repository.addProject(data, project, currentUser!);
+      _currentUser = data.users.firstWhere(
+        (item) => item.id == currentUser!.id,
+        orElse: () => currentUser!,
+      );
+      _section = AppSection.devices;
+      _visibleDevicesCount = 5;
+      _deviceTypeFilter = 'all';
+      _deviceRoomFilter = 'all';
+      notifyListeners();
+    });
   }
 
   Future<void> addDevice(NetworkDevice draft) async {
-    final actor = _currentUser!;
-    final device = draft.copyWith(
-      id: nextDeviceId(),
-      projectId: currentProject.id,
-      createdBy: actor.login,
-      createdAt: DateTime.now(),
-      status: actor.isAdmin ? draft.status : DeviceStatus.pending,
-    );
-    _data = await repository.addDevice(data, device);
-
-    if (!actor.isAdmin) {
-      final request = DeviceRequest(
-        id: nextRequestId(),
+    await _runMutation(() async {
+      final actor = _currentUser!;
+      final device = draft.copyWith(
+        id: nextDeviceId(),
         projectId: currentProject.id,
-        deviceId: device.id,
-        requesterLogin: actor.login,
-        status: DeviceRequestStatus.pending,
+        createdBy: actor.login,
         createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        status: actor.isAdmin ? draft.status : DeviceStatus.pending,
       );
-      _data = await repository.addDeviceRequest(data, request);
-      _data = await repository.addNotification(
-        data,
-        NotificationItem(
-          id: nextNotificationId(),
-          projectId: currentProject.id,
-          title: 'Новый запрос на устройство',
-          message:
-              'Пользователь ${actor.login} хочет добавить устройство "${device.name}"',
-          targetRole: UserRole.admin,
-          isRead: false,
-          createdAt: DateTime.now(),
-          actionType: NotificationActionType.deviceRequest,
-          relatedDeviceId: device.id,
-        ),
+      _data = await repository.addDevice(data, device, actor);
+      _currentUser = data.users.firstWhere(
+        (item) => item.id == actor.id,
+        orElse: () => actor,
       );
-    }
-
-    notifyListeners();
+      notifyListeners();
+    });
   }
 
   Future<void> updateDevice(NetworkDevice device) async {
-    _data = await repository.updateDevice(data, device);
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.updateDevice(data, device, currentUser!);
+      notifyListeners();
+    });
   }
 
   Future<void> resendDeviceRequest(NetworkDevice device) async {
-    final updated = device.copyWith(status: DeviceStatus.pending);
-    _data = await repository.updateDevice(data, updated);
-    final request = DeviceRequest(
-      id: nextRequestId(),
-      projectId: currentProject.id,
-      deviceId: device.id,
-      requesterLogin: currentUser!.login,
-      status: DeviceRequestStatus.pending,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    _data = await repository.addDeviceRequest(data, request);
-    _data = await repository.addNotification(
-      data,
-      NotificationItem(
-        id: nextNotificationId(),
-        projectId: currentProject.id,
-        title: 'Повторный запрос на устройство',
-        message:
-            'Пользователь ${currentUser!.login} повторно отправил запрос на "${device.name}"',
-        targetRole: UserRole.admin,
-        isRead: false,
-        createdAt: DateTime.now(),
-        actionType: NotificationActionType.deviceRequest,
-        relatedDeviceId: device.id,
-      ),
-    );
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.resendDeviceRequest(data, device.id, currentUser!);
+      notifyListeners();
+    });
   }
 
   Future<void> toggleFavorite(int deviceId) async {
-    _data = await repository.toggleFavorite(data, deviceId, currentUser!);
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.toggleFavorite(data, deviceId, currentUser!);
+      _currentUser = data.users.firstWhere(
+        (item) => item.id == currentUser!.id,
+        orElse: () => currentUser!,
+      );
+      notifyListeners();
+    });
   }
 
   Future<void> moveToTrash(int deviceId) async {
-    _data = await repository.moveToTrash(data, deviceId);
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.moveToTrash(data, deviceId, currentUser!);
+      notifyListeners();
+    });
   }
 
   Future<void> restoreDevice(int deviceId) async {
-    _data = await repository.restoreDevice(data, deviceId);
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.restoreDevice(data, deviceId, currentUser!);
+      notifyListeners();
+    });
   }
 
   Future<void> markNotificationRead(int notificationId) async {
-    _data = await repository.markNotificationRead(data, notificationId);
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.markNotificationRead(data, notificationId, currentUser!);
+      notifyListeners();
+    });
   }
 
   Future<void> decideDeviceRequest({
@@ -327,41 +327,41 @@ class AppController extends ChangeNotifier {
     required int deviceId,
     required bool approve,
   }) async {
-    final device = data.devices.firstWhere((item) => item.id == deviceId);
-    final request = data.deviceRequests.firstWhere((item) => item.id == requestId);
-    _data = await repository.updateDevice(
-      data,
-      device.copyWith(status: approve ? DeviceStatus.active : DeviceStatus.rejected),
-    );
-    _data = await repository.updateDeviceRequest(
-      data,
-      request.copyWith(
-        status: approve ? DeviceRequestStatus.approved : DeviceRequestStatus.rejected,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _data = await repository.markNotificationRead(data, notificationId);
-    _data = await repository.addNotification(
-      data,
-      NotificationItem(
-        id: nextNotificationId(),
-        projectId: currentProject.id,
-        title: approve ? 'Запрос одобрен' : 'Запрос отклонён',
-        message: approve
-            ? 'Устройство "${device.name}" одобрено администратором.'
-            : 'Устройство "${device.name}" отклонено администратором.',
-        targetRole: UserRole.user,
-        isRead: false,
-        createdAt: DateTime.now(),
-        actionType: NotificationActionType.info,
-        relatedDeviceId: device.id,
-      ),
-    );
-    notifyListeners();
+    await _runMutation(() async {
+      _data = await repository.decideDeviceRequest(
+        data,
+        requestId: requestId,
+        notificationId: notificationId,
+        approve: approve,
+        currentUser: currentUser!,
+      );
+      notifyListeners();
+    });
   }
 
   Future<void> saveRouterSettings(RouterSettings settings) async {
-    _data = await repository.updateRouterSettings(data, settings);
+    await _runMutation(() async {
+      _data = await repository.updateRouterSettings(data, settings, currentUser!);
+      notifyListeners();
+    });
+  }
+
+  Future<void> _runMutation(Future<void> Function() action) async {
+    _setBusy(true);
+    _operationError = null;
+    try {
+      await action();
+    } catch (error) {
+      _operationError = error.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _setBusy(false);
+    }
+  }
+
+  void _setBusy(bool value) {
+    _isBusy = value;
     notifyListeners();
   }
 }
